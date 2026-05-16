@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bloghash-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_TABLE:bloghashdb}
+      POSTGRES_USER:     ${DB_USER:postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+    
+    POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.utf8 --lc-ctype=en_US.utf8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    networks:
+      - bloghash-network
+
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d bloghashdb" ]
+      interval: 10s    
+      timeout: 5s      
+      retries: 5       
+      start_period: 30s 
+
+# ────────────────────────────────────────────────────────────────
+# REDIS — Token Blacklist + Caching
+# ────────────────────────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    container_name: bloghash-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+    networks:
+      - bloghash-network
+
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ────────────────────────────────────────────────────────────────
+# MAILHOG — Fake SMTP Server للـ Development
+# ────────────────────────────────────────────────────────────────
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: bloghash-mailhog
+    restart: unless-stopped
+ 
+    ports:
+      - "1025:1025"   # SMTP port: الـ Spring Boot بتبعت هنا
+      - "8025:8025"   # Web UI: افتح http://localhost:8025 تشوف الـ emails
+ 
+    networks:
+      - bloghash-network
+
+       
+  # ────────────────────────────────────────────────────────────────
+  # PGADMIN — PostgreSQL GUI (Optional)
+  # ────────────────────────────────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bloghash-pgadmin
+    restart: unless-stopped
+
+    environment:
+      PGADMIN_DEFAULT_EMAIL:    ${PGADMIN_EMAIL:-admin@bloghash.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'  
+    ports:
+      - "5050:80"   
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - bloghash-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data: 
+
+  # يمكن إضافة خدمة التطبيق نفسه لاحقًا بعد كتابة Dockerfile
+  # app:
+  #   build: .
+  #   container_name: socialblog-app
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     # سيتم تمرير متغيرات البيئة
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #     - mailhog
+  #   networks:
+  #     - blog-net
+
+
+networks:
+  bloghash-network:
+    driver: bridge
