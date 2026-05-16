@@ -176,7 +176,7 @@ public class CommentService {
     private CommentResponse enrichComment(Comment comment, UUID currentUserId) {
         CommentResponse base = commentMapper.toResponse(comment);
         long likes = commentReactionRepository.countByIdCommentId(comment.getId());
-        long replies = commentRepository.countByPostIdAndDeletedFalse(comment.getPost().getId());
+        long replies = commentRepository.countByParentId(comment.getId());
         boolean liked = currentUserId != null &&
                 commentReactionRepository.existsByIdUserIdAndIdCommentId(currentUserId, comment.getId());
 

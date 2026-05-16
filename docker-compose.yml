@@ -4,11 +4,10 @@ services:
     container_name: bloghash-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB:       ${DB_TABLE:bloghashdb}
-      POSTGRES_USER:     ${DB_USER:postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-    
-    POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.utf8 --lc-ctype=en_US.utf8"
+      POSTGRES_DB:       ${DB_TABLE:-bloghashdb}
+      POSTGRES_USER:     ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-mysecretpassword}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=en_US.utf8 --lc-ctype=en_US.utf8"
     ports:
       - "5432:5432"
     volumes:

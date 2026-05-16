@@ -3,7 +3,8 @@ package com.codencanvas.bloghash.service;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
- import org.springframework.data.redis.core.RedisTemplate;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -157,70 +158,68 @@ public class AuthService {
 
     @Transactional
     public void logout(String accessToken, String rawRefreshToken) {
- 
+
         // ── Blacklist the Access Token ────────────────────────────
         long ttlMillis = jwtService.getRemainingTtlMillis(accessToken);
         if (ttlMillis > 0) {
-            redisTemplate.opsForValue().set(
-                BLACKLIST_PREFIX + accessToken,
-                "revoked",
-                ttlMillis,
-                TimeUnit.MILLISECONDS
-            );
+            String hashedToken = DigestUtils.sha256Hex(accessToken); 
+            redisTemplate.opsForValue().set(BLACKLIST_PREFIX + hashedToken, "revoked", ttlMillis,
+                    TimeUnit.MILLISECONDS);
+
+           
         }
- 
+
         // ── Revoke Refresh Token ──────────────────────────────────
         // لو rawRefreshToken موجود في الـ request
         if (rawRefreshToken != null && !rawRefreshToken.isBlank()) {
-            String tokenHash = refreshTokenService.hashToken(rawRefreshToken);
+            refreshTokenService.hashToken(rawRefreshToken);
             refreshTokenService.revokeAllForUser(
-                // نجيب user ID من الـ JWT (بدل DB query)
-                jwtService.extractUserId(accessToken)
-            );
+                    // نجيب user ID من الـ JWT (بدل DB query)
+                    jwtService.extractUserId(accessToken));
         }
- 
+
         log.info("User logged out, token blacklisted");
     }
- 
+
     // ════════════════════════════════════════════════════════════
     // PRIVATE HELPERS
     // ════════════════════════════════════════════════════════════
- 
+
     private void handleFailedLogin(User user) {
         user.incrementFailedAttempts();
- 
+
         if (user.getFailedLoginAttempts() >= securityProperties.maxLoginAttempts()) {
             user.lock();
             log.warn("Account locked due to {} failed attempts: {}",
-                securityProperties.maxLoginAttempts(), user.getEmail());
+                    securityProperties.maxLoginAttempts(), user.getEmail());
         }
- 
+
         userRepository.save(user);
     }
- 
+
     private boolean isLockExpired(User user) {
-        if (user.getLockTime() == null) return true;
+        if (user.getLockTime() == null)
+            return true;
         Instant unlockTime = user.getLockTime()
-            .plusSeconds(securityProperties.lockAccountDurationMinutes() * 60L);
+                .plusSeconds(securityProperties.lockAccountDurationMinutes() * 60L);
         return Instant.now().isAfter(unlockTime);
     }
- 
+
     private long getRemainingLockMinutes(User user) {
-        if (user.getLockTime() == null) return 0;
-        Instant unlockTime   = user.getLockTime()
-            .plusSeconds(securityProperties.lockAccountDurationMinutes() * 60L);
-        long    remainingSecs = unlockTime.getEpochSecond() - Instant.now().getEpochSecond();
+        if (user.getLockTime() == null)
+            return 0;
+        Instant unlockTime = user.getLockTime()
+                .plusSeconds(securityProperties.lockAccountDurationMinutes() * 60L);
+        long remainingSecs = unlockTime.getEpochSecond() - Instant.now().getEpochSecond();
         return Math.max(1, remainingSecs / 60); // minimum 1 دقيقة
     }
- 
+
     private AuthResponse buildAuthResponse(String accessToken, String refreshToken, User user) {
         UserSummaryResponse userResponse = userMapper.toSummaryResponse(user);
         return AuthResponse.of(
-            accessToken,
-            refreshToken,
-            jwtProperties.accessTokenExpiration(),
-            userResponse
-        );
+                accessToken,
+                refreshToken,
+                jwtProperties.accessTokenExpiration(),
+                userResponse);
     }
 }
- 

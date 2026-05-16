@@ -5,13 +5,12 @@ import com.codencanvas.bloghash.domain.social.FollowerId;
 import com.codencanvas.bloghash.domain.user.User;
 import com.codencanvas.bloghash.dto.request.user.*;
 import com.codencanvas.bloghash.dto.response.auth.UserProfileResponse;
-import com.codencanvas.bloghash.dto.response.user.*;
+
 import com.codencanvas.bloghash.exception.*;
 import com.codencanvas.bloghash.exception.base.BlogHashException;
 import com.codencanvas.bloghash.mapper.UserMapper;
 import com.codencanvas.bloghash.repository.*;
 import com.codencanvas.bloghash.security.principal.UserPrincipal;
-import com.codencanvas.bloghash.service.CloudinaryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -117,13 +116,14 @@ public class UserService {
      */
     @Transactional
     public boolean toggleFollow(String targetUsername, UserPrincipal principal) {
-        if (targetUsername.equals(principal.getUser().getUsername())) {
-            throw new BlogHashException("You cannot follow yourself", 400);
-        }
- 
+        
         User target = userRepository.findByUsername(targetUsername)
             .orElseThrow(() -> new ResourceNotFoundException("User"));
  
+        if (principal.getId().equals(target.getId())) {
+            throw new BlogHashException("You cannot follow yourself", 400);
+        }
+
         UUID followerId  = principal.getId();
         UUID followingId = target.getId();
         FollowerId id    = new FollowerId(followerId, followingId);

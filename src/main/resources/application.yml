@@ -8,9 +8,9 @@ spring:
     name: bloghash
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/${POSTGRES_DB:bloghashdb}
+    url: jdbc:postgresql://localhost:5432/bloghashdb
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:password}
+    password: ${DB_PASSWORD:mysecretpassword}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
